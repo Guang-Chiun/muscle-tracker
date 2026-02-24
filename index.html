@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💪 29kg 骨骼肌衝刺日誌</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .meal-card { border-left: 4px solid #3b82f6; }
+        .total-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.2); z-index: 100; cursor: wait; }
+        body.is-loading .loading-overlay { display: block; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+
+<div class="loading-overlay"></div>
+
+<div class="max-w-4xl mx-auto">
+    <header class="mb-8 flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-800">🥗 增肌雲端同步日誌</h1>
+            <p class="text-sm text-gray-500">目標：骨骼肌長到 29.0 kg</p>
+        </div>
+        <button onclick="toggleLibrary()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md transition">管理食物庫</button>
+    </header>
+
+    <div id="statusMsg" class="hidden fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-xl z-50 animate-bounce">同步成功</div>
+
+    <div id="librarySection" class="hidden mb-8 bg-white p-6 rounded-xl shadow-md border border-blue-100">
+        <h2 class="text-xl font-semibold mb-4 text-blue-600">建立常用清單 (Cloud Database)</h2>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+            <input type="text" id="libName" placeholder="食物名稱 (如: 雞胸肉)" class="border p-2 rounded focus:ring-2 focus:ring-blue-400 outline-none">
+            <input type="number" id="libCal" placeholder="熱量 (kcal)" class="border p-2 rounded focus:ring-2 focus:ring-blue-400 outline-none">
+            <input type="number" id="libPro" placeholder="蛋白質 (g)" class="border p-2 rounded focus:ring-2 focus:ring-blue-400 outline-none">
+            <input type="number" id="libCarb" placeholder="碳水 (g)" class="border p-2 rounded focus:ring-2 focus:ring-blue-400 outline-none">
+        </div>
+        <button onclick="saveToLibrary()" class="w-full bg-green-500 text-white py-2 rounded-lg hover:bg-green-600 font-bold">儲存至雲端資料庫</button>
+        
+        <div class="mt-4 max-h-48 overflow-y-auto border-t pt-4" id="libraryList">
+            <p class="text-gray-400 text-center text-sm">資料庫載入中...</p>
+        </div>
+    </div>
+
+    <div class="total-card text-white p-6 rounded-2xl shadow-xl mb-8 grid grid-cols-3 gap-4 text-center">
+        <div class="border-r border-gray-700">
+            <p class="text-gray-400 text-xs uppercase tracking-widest mb-1">Total Calories</p>
+            <p id="totalCal" class="text-3xl font-bold text-yellow-400">0</p>
+            <p class="text-xs text-gray-400">/ 2350 kcal</p>
+        </div>
+        <div class="border-r border-gray-700">
+            <p class="text-gray-400 text-xs uppercase tracking-widest mb-1">Protein</p>
+            <p id="totalPro" class="text-3xl font-bold text-blue-400">0</p>
+            <p class="text-xs text-gray-400">/ 110 g</p>
+        </div>
+        <div>
+            <p class="text-gray-400 text-xs uppercase tracking-widest mb-1">Carbs</p>
+            <p id="totalCarb" class="text-3xl font-bold text-green-400">0</p>
+            <p class="text-xs text-gray-400">/ 330 g</p>
+        </div>
+    </div>
+
+    <div id="mealGrid" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <script>
+            const meals = ['早餐', '午餐', '下午茶', '晚餐'];
+            meals.forEach(meal => {
+                document.write(`
+                    <div class="bg-white p-5 rounded-xl shadow-md meal-card">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-gray-700">${meal}</h3>
+                            <select onchange="addFromLibrary('${meal}', this)" class="border text-sm p-1 rounded bg-gray-50 focus:border-blue-500 outline-none">
+                                <option value="">+ 加入食物</option>
+                            </select>
+                        </div>
+                        <ul id="list-${meal}" class="space-y-2 text-sm text-gray-600 mb-2 min-h-[40px]"></ul>
+                    </div>
+                `);
+            });
+        </script>
+    </div>
+    
+    <div class="flex gap-4 mt-8">
+        <button onclick="clearDailyLog()" class="flex-1 bg-gray-200 text-gray-600 py-2 rounded-lg hover:bg-gray-300 transition text-sm">重置今日紀錄</button>
+        <button onclick="location.reload()" class="flex-1 bg-blue-100 text-blue-600 py-2 rounded-lg hover:bg-blue-200 transition text-sm">手動重新整理</button>
+    </div>
+</div>
+
+<script>
+    // 你的 Google Apps Script 網址
+    const API_URL = "https://script.google.com/macros/s/AKfycbwBpWyA2nE-1TRjQPGv7wqj2rW3OS2840vQph-Z2MC8MTscoK1cNNnzH_1bLWy5EK7ggw/exec"; 
+
+    let foodLibrary = [];
+    let dailyLog = { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] };
+
+    // 初始化讀取雲端資料
+    async function init() {
+        document.body.classList.add('is-loading');
+        try {
+            const response = await fetch(API_URL);
+            const data = await response.json();
+            foodLibrary = data.foodLibrary || [];
+            dailyLog = data.dailyLog || { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] };
+            
+            updateLibraryUI();
+            renderDailyLog();
+            updateTotals();
+        } catch (e) {
+            console.error("雲端連線失敗", e);
+            alert("目前無法連線至 Google Sheets，請確認網路或 API 部署設定。");
+        } finally {
+            document.body.classList.remove('is-loading');
+        }
+    }
+
+    // 同步到雲端 (POST)
+    async function sync(type, data) {
+        document.body.classList.add('is-loading');
+        try {
+            await fetch(API_URL, {
+                method: 'POST',
+                mode: 'no-cors', 
+                body: JSON.stringify({ type, data })
+            });
+            showStatus();
+        } catch (e) {
+            console.error("同步失敗", e);
+        } finally {
+            document.body.classList.remove('is-loading');
+        }
+    }
+
+    function toggleLibrary() {
+        document.getElementById('librarySection').classList.toggle('hidden');
+    }
+
+    async function saveToLibrary() {
+        const name = document.getElementById('libName').value;
+        const cal = parseFloat(document.getElementById('libCal').value) || 0;
+        const pro = parseFloat(document.getElementById('libPro').value) || 0;
+        const carb = parseFloat(document.getElementById('libCarb').value) || 0;
+
+        if (!name) return alert('請輸入名稱');
+        
+        foodLibrary.push({ name, cal, pro, carb });
+        updateLibraryUI();
+        await sync('saveLibrary', foodLibrary);
+        
+        ['libName', 'libCal', 'libPro', 'libCarb'].forEach(id => document.getElementById(id).value = '');
+    }
+
+    async function deleteLibItem(idx) {
+        if(!confirm('確定要從資料庫刪除嗎？')) return;
+        foodLibrary.splice(idx, 1);
+        updateLibraryUI();
+        await sync('saveLibrary', foodLibrary);
+    }
+
+    async function addFromLibrary(mealType, selectElement) {
+        const foodIdx = selectElement.value;
+        if (foodIdx === "") return;
+        
+        const food = foodLibrary[foodIdx];
+        dailyLog[mealType].push({...food});
+        
+        renderDailyLog();
+        updateTotals();
+        await sync('saveLog', dailyLog);
+        selectElement.value = "";
+    }
+
+    async function removeFromLog(meal, idx) {
+        dailyLog[meal].splice(idx, 1);
+        renderDailyLog();
+        updateTotals();
+        await sync('saveLog', dailyLog);
+    }
+
+    async function clearDailyLog() {
+        if(confirm('確定要清空今日所有用餐紀錄嗎？')) {
+            dailyLog = { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] };
+            renderDailyLog();
+            updateTotals();
+            await sync('saveLog', dailyLog);
+        }
+    }
+
+    function updateLibraryUI() {
+        const list = document.getElementById('libraryList');
+        const selects = document.querySelectorAll('select');
+        
+        if (foodLibrary.length === 0) {
+            list.innerHTML = `<p class="text-gray-400 text-center text-sm italic">目前資料庫是空的，請新增食物。</p>`;
+        } else {
+            list.innerHTML = foodLibrary.map((f, i) => `
+                <div class="flex justify-between items-center text-sm py-2 border-b border-gray-50 hover:bg-gray-50 px-2 rounded">
+                    <span class="font-medium text-gray-700">${f.name}</span>
+                    <div class="text-gray-500">
+                        <span class="mr-2">${f.cal}kcal</span>
+                        <span class="mr-2 text-blue-500">P:${f.pro}</span>
+                        <span class="text-green-500">C:${f.carb}</span>
+                        <button onclick="deleteLibItem(${i})" class="ml-4 text-red-300 hover:text-red-500">✕</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        const options = foodLibrary.map((f, i) => `<option value="${i}">${f.name}</option>`).join('');
+        selects.forEach(s => s.innerHTML = '<option value="">+ 加入食物</option>' + options);
+    }
+
+    function renderDailyLog() {
+        meals.forEach(meal => {
+            const list = document.getElementById(`list-${meal}`);
+            const items = dailyLog[meal] || [];
+            if (items.length === 0) {
+                list.innerHTML = `<li class="text-gray-300 text-xs italic">尚未點餐</li>`;
+            } else {
+                list.innerHTML = items.map((f, i) => `
+                    <li class="flex justify-between items-center bg-gray-50 p-2 rounded group">
+                        <span class="text-gray-700 font-medium">${f.name}</span>
+                        <div class="flex items-center">
+                            <span class="text-gray-400 text-xs mr-2">${f.cal} kcal</span>
+                            <button onclick="removeFromLog('${meal}', ${i})" class="text-gray-300 hover:text-red-500 font-bold">✕</button>
+                        </div>
+                    </li>
+                `).join('');
+            }
+        });
+    }
+
+    function updateTotals() {
+        let tCal = 0, tPro = 0, tCarb = 0;
+        Object.values(dailyLog).flat().forEach(f => {
+            tCal += f.cal || 0;
+            tPro += f.pro || 0;
+            tCarb += f.carb || 0;
+        });
+        document.getElementById('totalCal').innerText = Math.round(tCal);
+        document.getElementById('totalPro').innerText = Math.round(tPro);
+        document.getElementById('totalCarb').innerText = Math.round(tCarb);
+        
+        // 視覺反饋：如果蛋白質達標，數字變色
+        document.getElementById('totalPro').className = tPro >= 110 ? "text-3xl font-bold text-blue-400 animate-pulse" : "text-3xl font-bold text-blue-400";
+    }
+
+    function showStatus() {
+        const s = document.getElementById('statusMsg');
+        s.classList.remove('hidden');
+        setTimeout(() => s.classList.add('hidden'), 2000);
+    }
+
+    // 啟動應用
+    init();
+</script>
+</body>
+</html>

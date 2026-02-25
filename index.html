@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 飲食紀錄表 💪</title>
+    <title>飲食記錄表</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .meal-card { border-left: 4px solid #3b82f6; transition: all 0.2s ease; }
@@ -15,7 +15,7 @@
 <body class="bg-gray-100 min-h-screen p-4 pb-20">
 
 <div class="max-w-4xl mx-auto">
-    <header class="mb-8 flex justify-between items-center">
+    <header class="mb-6 flex justify-between items-center">
         <div>
             <h1 class="text-2xl font-bold text-gray-800 tracking-tight">🥗 增肌同步日誌</h1>
             <p class="text-xs text-gray-500">ID: <span id="displayUID" class="font-mono text-blue-600 font-bold"></span></p>
@@ -28,7 +28,7 @@
         <span id="statusText">正在同步...</span>
     </div>
 
-    <div class="total-card text-white p-6 rounded-2xl shadow-xl mb-8 grid grid-cols-3 gap-2 text-center">
+    <div class="total-card text-white p-6 rounded-2xl shadow-xl mb-6 grid grid-cols-3 gap-2 text-center">
         <div>
             <p class="text-gray-400 text-[10px] uppercase">Calories</p>
             <p id="totalCal" class="text-xl font-bold text-yellow-400">0</p>
@@ -44,6 +44,21 @@
             <p id="totalCarb" class="text-xl font-bold text-green-400">0</p>
             <p class="text-[9px] text-gray-500">Target: 330g</p>
         </div>
+    </div>
+
+    <div id="librarySection" class="hidden mb-6 bg-white p-6 rounded-xl shadow-md border border-blue-50">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-lg font-bold text-blue-600">雲端常用清單</h2>
+            <button onclick="toggleLibrary()" class="text-gray-400 hover:text-red-500 text-sm">✕ 隱藏</button>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-4">
+            <input type="text" id="libName" placeholder="名稱" class="border p-2 rounded text-sm">
+            <input type="number" id="libCal" placeholder="熱量" class="border p-2 rounded text-sm">
+            <input type="number" id="libPro" placeholder="蛋白" class="border p-2 rounded text-sm">
+            <input type="number" id="libCarb" placeholder="碳水" class="border p-2 rounded text-sm">
+        </div>
+        <button onclick="saveToLibrary()" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold hover:bg-green-600">儲存資料庫</button>
+        <div class="mt-4 max-h-60 overflow-y-auto border-t pt-2" id="libraryList"></div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -64,18 +79,6 @@
         </script>
     </div>
 
-    <div id="librarySection" class="hidden mt-8 bg-white p-6 rounded-xl shadow-inner border border-blue-50">
-        <h2 class="text-lg font-bold mb-4 text-blue-600">雲端常用清單</h2>
-        <div class="grid grid-cols-2 gap-3 mb-4">
-            <input type="text" id="libName" placeholder="名稱" class="border p-2 rounded text-sm">
-            <input type="number" id="libCal" placeholder="熱量" class="border p-2 rounded text-sm">
-            <input type="number" id="libPro" placeholder="蛋白" class="border p-2 rounded text-sm">
-            <input type="number" id="libCarb" placeholder="碳水" class="border p-2 rounded text-sm">
-        </div>
-        <button onclick="saveToLibrary()" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold hover:bg-green-600">儲存資料庫</button>
-        <div class="mt-4 max-h-60 overflow-y-auto" id="libraryList"></div>
-    </div>
-
     <div class="mt-12 flex justify-center gap-6">
         <button onclick="clearDailyLog()" class="text-gray-400 text-xs hover:text-red-500 underline">重置今日紀錄</button>
         <button onclick="changeUID()" class="text-gray-400 text-xs hover:text-blue-500 underline">更換帳號 ID</button>
@@ -85,7 +88,6 @@
 <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbwBpWyA2nE-1TRjQPGv7wqj2rW3OS2840vQph-Z2MC8MTscoK1cNNnzH_1bLWy5EK7ggw/exec"; 
     
-    // --- 1. 核心狀態與 UID 管理 ---
     let UID = localStorage.getItem('muscle_tracker_uid');
     if (!UID) {
         UID = prompt("請輸入您的增肌帳號 ID：") || "default_user";
@@ -96,7 +98,6 @@
     let foodLibrary = [];
     let dailyLog = { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] };
 
-    // --- 2. UI 顯示控制 ---
     function showStatus(msg) {
         const s = document.getElementById('statusMsg');
         document.getElementById('statusText').innerText = msg;
@@ -106,9 +107,7 @@
         setTimeout(() => document.getElementById('statusMsg').classList.add('hidden'), 1500);
     }
 
-    // --- 3. 核心邏輯：快取優先 (Cache-First) ---
     async function init() {
-        // 先讀取本地快取，讓使用者不用等
         const cachedLib = localStorage.getItem(`cache_${UID}_lib`);
         const cachedLog = localStorage.getItem(`cache_${UID}_log`);
         if (cachedLib) { foodLibrary = JSON.parse(cachedLib); updateLibraryUI(); }
@@ -118,15 +117,10 @@
         try {
             const response = await fetch(`${API_URL}?uid=${encodeURIComponent(UID)}`);
             const data = await response.json();
-            
-            // 背景同步後更新
             foodLibrary = data.foodLibrary || [];
             dailyLog = data.dailyLog || { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] };
-            
-            // 更新快取
             localStorage.setItem(`cache_${UID}_lib`, JSON.stringify(foodLibrary));
             localStorage.setItem(`cache_${UID}_log`, JSON.stringify(dailyLog));
-            
             updateLibraryUI();
             renderDailyLog();
             updateTotals();
@@ -136,17 +130,13 @@
         } finally { hideStatus(); }
     }
 
-    // --- 4. 非同步同步邏輯 (Optimistic UI) ---
     function sync(type, data) {
-        // 立即更新快取
         const cacheKey = type === 'saveLibrary' ? `cache_${UID}_lib` : `cache_${UID}_log`;
         localStorage.setItem(cacheKey, JSON.stringify(data));
-        
         showStatus("正在雲端備份...");
-        // 背景執行，不 await，不卡 UI
         fetch(API_URL, {
             method: 'POST',
-            mode: 'no-cors', // 避開 GAS 的導向問題
+            mode: 'no-cors',
             body: JSON.stringify({ type, data, uid: UID })
         }).then(() => {
             showStatus("雲端已備份");
@@ -157,7 +147,6 @@
         });
     }
 
-    // --- 5. 功能函數 ---
     function toggleLibrary() { document.getElementById('librarySection').classList.toggle('hidden'); }
 
     function saveToLibrary() {
@@ -172,19 +161,15 @@
         ['libName', 'libCal', 'libPro', 'libCarb'].forEach(id => document.getElementById(id).value = '');
     }
 
-    // ✅ 【修改重點】這裡更新了顯示邏輯
     function updateLibraryUI() {
         const list = document.getElementById('libraryList');
         const selects = document.querySelectorAll('select');
-        
-        // 新的顯示格式：名稱 (熱量k / P:蛋白 / C:碳水)
         list.innerHTML = foodLibrary.map((f, i) => `
             <div class="flex justify-between items-center text-sm py-2 border-b border-gray-50 hover:bg-gray-50 px-2 rounded group">
                 <span class="font-medium text-gray-700">${f.name} <span class="text-[10px] text-gray-400 font-normal">(${f.cal}k / P:${f.pro} / C:${f.carb})</span></span>
                 <button onclick="deleteLibItem(${i})" class="text-red-300 hover:text-red-500 transition">✕</button>
             </div>
         `).join('');
-
         const opts = foodLibrary.map((f, i) => `<option value="${i}">${f.name}</option>`).join('');
         selects.forEach(s => s.innerHTML = '<option value="">+ 加入食物</option>' + opts);
     }
@@ -229,7 +214,6 @@
 
     function changeUID() { const n = prompt("輸入新 ID：", UID); if(n && n!==UID){ localStorage.setItem('muscle_tracker_uid', n); location.reload(); } }
 
-    // 啟動
     init();
 </script>
 </body>

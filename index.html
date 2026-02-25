@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>💪 29.0kg 骨骼肌增肌衝刺</title>
+    <title>💪 飲食紀錄表 💪</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .meal-card { border-left: 4px solid #3b82f6; transition: all 0.2s ease; }
@@ -73,7 +73,7 @@
             <input type="number" id="libCarb" placeholder="碳水" class="border p-2 rounded text-sm">
         </div>
         <button onclick="saveToLibrary()" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold hover:bg-green-600">儲存資料庫</button>
-        <div class="mt-4 max-h-40 overflow-y-auto" id="libraryList"></div>
+        <div class="mt-4 max-h-60 overflow-y-auto" id="libraryList"></div>
     </div>
 
     <div class="mt-12 flex justify-center gap-6">
@@ -172,15 +172,28 @@
         ['libName', 'libCal', 'libPro', 'libCarb'].forEach(id => document.getElementById(id).value = '');
     }
 
+    // ✅ 【修改重點】這裡更新了顯示邏輯
     function updateLibraryUI() {
         const list = document.getElementById('libraryList');
         const selects = document.querySelectorAll('select');
-        list.innerHTML = foodLibrary.map((f, i) => `<div class="flex justify-between text-[11px] py-1 border-b"><span>${f.name}</span><button onclick="deleteLibItem(${i})" class="text-red-300">✕</button></div>`).join('');
+        
+        // 新的顯示格式：名稱 (熱量k / P:蛋白 / C:碳水)
+        list.innerHTML = foodLibrary.map((f, i) => `
+            <div class="flex justify-between items-center text-sm py-2 border-b border-gray-50 hover:bg-gray-50 px-2 rounded group">
+                <span class="font-medium text-gray-700">${f.name} <span class="text-[10px] text-gray-400 font-normal">(${f.cal}k / P:${f.pro} / C:${f.carb})</span></span>
+                <button onclick="deleteLibItem(${i})" class="text-red-300 hover:text-red-500 transition">✕</button>
+            </div>
+        `).join('');
+
         const opts = foodLibrary.map((f, i) => `<option value="${i}">${f.name}</option>`).join('');
         selects.forEach(s => s.innerHTML = '<option value="">+ 加入食物</option>' + opts);
     }
 
-    function deleteLibItem(i) { foodLibrary.splice(i, 1); updateLibraryUI(); sync('saveLibrary', foodLibrary); }
+    function deleteLibItem(i) { 
+        if(confirm('確定要從資料庫刪除嗎？')) {
+            foodLibrary.splice(i, 1); updateLibraryUI(); sync('saveLibrary', foodLibrary); 
+        }
+    }
 
     function addFromLibrary(meal, select) {
         const idx = select.value;

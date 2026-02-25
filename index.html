@@ -92,40 +92,44 @@
     let foodLibrary = [];
     let dailyLog = { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] };
 
-    // 初始化讀取雲端資料
+    // 取得或設定使用者 ID (存在瀏覽器中)
+    let UID = localStorage.getItem('muscle_tracker_uid');
+    if (!UID) {
+        UID = prompt("歡迎使用增肌日誌！請輸入一個名稱或 Email 作為你的帳號（這將用於區隔資料）：");
+        if (UID) localStorage.setItem('muscle_tracker_uid', UID);
+        else UID = "default_user";
+    }
+    
     async function init() {
-        document.body.classList.add('is-loading');
+        showStatus(`同步中 (${UID})...`);
         try {
-            const response = await fetch(API_URL);
+            // 在網址後方帶上 uid 參數
+            const response = await fetch(`${API_URL}?uid=${encodeURIComponent(UID)}`);
             const data = await response.json();
             foodLibrary = data.foodLibrary || [];
             dailyLog = data.dailyLog || { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] };
-            
             updateLibraryUI();
             renderDailyLog();
             updateTotals();
         } catch (e) {
-            console.error("雲端連線失敗", e);
-            alert("目前無法連線至 Google Sheets，請確認網路或 API 部署設定。");
+            alert("連線失敗，請確認 API 部署為「執行身分：我」且「誰有權存取：所有人」");
         } finally {
-            document.body.classList.remove('is-loading');
+            hideStatus();
         }
     }
-
-    // 同步到雲端 (POST)
+    
     async function sync(type, data) {
-        document.body.classList.add('is-loading');
+        showStatus('雲端同步中...');
         try {
             await fetch(API_URL, {
                 method: 'POST',
-                mode: 'no-cors', 
-                body: JSON.stringify({ type, data })
+                body: JSON.stringify({ type, data, uid: UID }) // 傳送資料時也帶上 uid
             });
-            showStatus();
+            showStatus('同步成功');
         } catch (e) {
             console.error("同步失敗", e);
         } finally {
-            document.body.classList.remove('is-loading');
+            hideStatus();
         }
     }
 
@@ -253,4 +257,5 @@
     init();
 </script>
 </body>
+
 </html>

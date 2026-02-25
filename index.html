@@ -92,18 +92,21 @@
     let foodLibrary = [];
     let dailyLog = { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] };
 
-    // 取得或設定使用者 ID (存在瀏覽器中)
+// 1. 【最優先】檢查使用者 ID
     let UID = localStorage.getItem('muscle_tracker_uid');
     if (!UID) {
-        UID = prompt("歡迎使用增肌日誌！請輸入一個名稱或 Email 作為你的帳號（這將用於區隔資料）：");
+        UID = prompt("歡迎使用增肌日誌！請輸入一個名稱作為你的帳號（例如你的英文名）：");
         if (UID) localStorage.setItem('muscle_tracker_uid', UID);
         else UID = "default_user";
     }
-    
+
+    let foodLibrary = [];
+    let dailyLog = { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] };
+
+    // 2. 初始化讀取
     async function init() {
-        showStatus(`同步中 (${UID})...`);
+        showStatus(`讀取資料中 (${UID})...`);
         try {
-            // 在網址後方帶上 uid 參數
             const response = await fetch(`${API_URL}?uid=${encodeURIComponent(UID)}`);
             const data = await response.json();
             foodLibrary = data.foodLibrary || [];
@@ -112,9 +115,26 @@
             renderDailyLog();
             updateTotals();
         } catch (e) {
-            alert("連線失敗，請確認 API 部署為「執行身分：我」且「誰有權存取：所有人」");
+            console.error("連線失敗", e);
+            alert("目前無法連線至 Google Sheets，請確認 API 部署設定。");
         } finally {
-            hideStatus();
+            hideStatus(); // 這裡原本報錯，現在修好了
+        }
+    }
+
+    // 3. 輔助函數 (確保這些都在代碼裡)
+    function showStatus(msg) {
+        const s = document.getElementById('statusMsg') || document.getElementById('status');
+        if (s) {
+            s.innerText = msg;
+            s.classList.remove('hidden');
+        }
+    }
+
+    function hideStatus() {
+        const s = document.getElementById('statusMsg') || document.getElementById('status');
+        if (s) {
+            setTimeout(() => s.classList.add('hidden'), 1000);
         }
     }
     
@@ -259,3 +279,4 @@
 </body>
 
 </html>
+

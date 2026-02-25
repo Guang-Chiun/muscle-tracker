@@ -3,13 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>飲食記錄表</title>
+    <title>💪 個人化增肌衝刺日誌</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .meal-card { border-left: 4px solid #3b82f6; transition: all 0.2s ease; }
         .total-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
-        .loading-dot { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .progress-bar { transition: width 0.5s ease-in-out; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-4 pb-20">
@@ -20,11 +19,10 @@
             <h1 class="text-2xl font-bold text-gray-800 tracking-tight">🥗 增肌同步日誌</h1>
             <p class="text-xs text-gray-500">ID: <span id="displayUID" class="font-mono text-blue-600 font-bold"></span></p>
         </div>
-        <button onclick="toggleLibrary()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md">管理食物庫</button>
+        <button onclick="toggleLibrary()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md text-sm">管理與目標設定</button>
     </header>
 
     <div id="statusMsg" class="hidden fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-full text-xs shadow-2xl z-50 flex items-center">
-        <div class="w-2 h-2 bg-blue-400 rounded-full mr-2 loading-dot"></div>
         <span id="statusText">正在同步...</span>
     </div>
 
@@ -32,33 +30,49 @@
         <div>
             <p class="text-gray-400 text-[10px] uppercase">Calories</p>
             <p id="totalCal" class="text-xl font-bold text-yellow-400">0</p>
-            <p class="text-[9px] text-gray-500">Target: 2350</p>
+            <p class="text-[9px] text-gray-500">Target: <span id="tgCal">--</span></p>
         </div>
         <div>
-            <p class="text-gray-400 text-[10px] uppercase">Protein</p>
+            <p class="text-gray-400 text-[10px] uppercase">Protein (g)</p>
             <p id="totalPro" class="text-xl font-bold text-blue-400">0</p>
-            <p class="text-[9px] text-gray-500">Target: 110g</p>
+            <p class="text-[9px] text-gray-500">Target: <span id="tgPro">--</span></p>
         </div>
         <div>
-            <p class="text-gray-400 text-[10px] uppercase">Carbs</p>
+            <p class="text-gray-400 text-[10px] uppercase">Carbs (g)</p>
             <p id="totalCarb" class="text-xl font-bold text-green-400">0</p>
-            <p class="text-[9px] text-gray-500">Target: 330g</p>
+            <p class="text-[9px] text-gray-500">Target: <span id="tgCarb">--</span></p>
         </div>
     </div>
 
     <div id="librarySection" class="hidden mb-6 bg-white p-6 rounded-xl shadow-md border border-blue-50">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-lg font-bold text-blue-600">雲端常用清單</h2>
-            <button onclick="toggleLibrary()" class="text-gray-400 hover:text-red-500 text-sm">✕ 隱藏</button>
+        <div class="mb-8 pb-6 border-b">
+            <h2 class="text-lg font-bold text-blue-600 mb-4">🎯 個人增肌目標設定</h2>
+            <div class="grid grid-cols-3 gap-4 mb-4">
+                <div>
+                    <label class="text-[10px] text-gray-400 block mb-1">目標熱量</label>
+                    <input type="number" id="setCal" class="border p-2 rounded w-full text-sm font-bold">
+                </div>
+                <div>
+                    <label class="text-[10px] text-gray-400 block mb-1">目標蛋白</label>
+                    <input type="number" id="setPro" class="border p-2 rounded w-full text-sm font-bold">
+                </div>
+                <div>
+                    <label class="text-[10px] text-gray-400 block mb-1">目標碳水</label>
+                    <input type="number" id="setCarb" class="border p-2 rounded w-full text-sm font-bold">
+                </div>
+            </div>
+            <button onclick="updateUserTargets()" class="w-full bg-blue-500 text-white py-2 rounded-lg text-sm font-bold hover:bg-blue-600">儲存個人目標</button>
         </div>
+
+        <h2 class="text-lg font-bold text-green-600 mb-4">🍎 雲端常用清單</h2>
         <div class="grid grid-cols-2 gap-3 mb-4">
             <input type="text" id="libName" placeholder="名稱" class="border p-2 rounded text-sm">
             <input type="number" id="libCal" placeholder="熱量" class="border p-2 rounded text-sm">
             <input type="number" id="libPro" placeholder="蛋白" class="border p-2 rounded text-sm">
             <input type="number" id="libCarb" placeholder="碳水" class="border p-2 rounded text-sm">
         </div>
-        <button onclick="saveToLibrary()" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold hover:bg-green-600">儲存資料庫</button>
-        <div class="mt-4 max-h-60 overflow-y-auto border-t pt-2" id="libraryList"></div>
+        <button onclick="saveToLibrary()" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold hover:bg-green-600">儲存至資料庫</button>
+        <div class="mt-4 max-h-40 overflow-y-auto border-t pt-2" id="libraryList"></div>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -86,7 +100,7 @@
 </div>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwBpWyA2nE-1TRjQPGv7wqj2rW3OS2840vQph-Z2MC8MTscoK1cNNnzH_1bLWy5EK7ggw/exec"; 
+    const API_URL = "你的 GAS 網址"; 
     
     let UID = localStorage.getItem('muscle_tracker_uid');
     if (!UID) {
@@ -97,6 +111,8 @@
 
     let foodLibrary = [];
     let dailyLog = { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] };
+    // 預設目標數值
+    let userTargets = { cal: 2350, pro: 110, carb: 330 };
 
     function showStatus(msg) {
         const s = document.getElementById('statusMsg');
@@ -110,41 +126,64 @@
     async function init() {
         const cachedLib = localStorage.getItem(`cache_${UID}_lib`);
         const cachedLog = localStorage.getItem(`cache_${UID}_log`);
-        if (cachedLib) { foodLibrary = JSON.parse(cachedLib); updateLibraryUI(); }
-        if (cachedLog) { dailyLog = JSON.parse(cachedLog); renderDailyLog(); updateTotals(); }
+        const cachedTgs = localStorage.getItem(`cache_${UID}_tgs`);
+        
+        if (cachedLib) foodLibrary = JSON.parse(cachedLib);
+        if (cachedLog) dailyLog = JSON.parse(cachedLog);
+        if (cachedTgs) userTargets = JSON.parse(cachedTgs);
+        
+        applyDataToUI();
 
         showStatus("雲端同步中...");
         try {
             const response = await fetch(`${API_URL}?uid=${encodeURIComponent(UID)}`);
             const data = await response.json();
+            
             foodLibrary = data.foodLibrary || [];
             dailyLog = data.dailyLog || { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] };
+            userTargets = data.targets || userTargets;
+            
             localStorage.setItem(`cache_${UID}_lib`, JSON.stringify(foodLibrary));
             localStorage.setItem(`cache_${UID}_log`, JSON.stringify(dailyLog));
-            updateLibraryUI();
-            renderDailyLog();
-            updateTotals();
+            localStorage.setItem(`cache_${UID}_tgs`, JSON.stringify(userTargets));
+            
+            applyDataToUI();
             showStatus("同步完成");
-        } catch (e) {
-            showStatus("目前為離線模式");
-        } finally { hideStatus(); }
+        } catch (e) { showStatus("離線模式"); } finally { hideStatus(); }
+    }
+
+    function applyDataToUI() {
+        updateLibraryUI();
+        renderDailyLog();
+        updateTotals();
+        document.getElementById('setCal').value = userTargets.cal;
+        document.getElementById('setPro').value = userTargets.pro;
+        document.getElementById('setCarb').value = userTargets.carb;
+        document.getElementById('tgCal').innerText = userTargets.cal;
+        document.getElementById('tgPro').innerText = userTargets.pro;
+        document.getElementById('tgCarb').innerText = userTargets.carb;
     }
 
     function sync(type, data) {
-        const cacheKey = type === 'saveLibrary' ? `cache_${UID}_lib` : `cache_${UID}_log`;
-        localStorage.setItem(cacheKey, JSON.stringify(data));
+        const cacheKeyMap = { 'saveLibrary': `cache_${UID}_lib`, 'saveLog': `cache_${UID}_log`, 'saveTargets': `cache_${UID}_tgs` };
+        localStorage.setItem(cacheKeyMap[type], JSON.stringify(data));
+        
         showStatus("正在雲端備份...");
         fetch(API_URL, {
             method: 'POST',
             mode: 'no-cors',
             body: JSON.stringify({ type, data, uid: UID })
-        }).then(() => {
-            showStatus("雲端已備份");
-            hideStatus();
-        }).catch(() => {
-            showStatus("雲端備份失敗 (待連線)");
-            hideStatus();
-        });
+        }).then(() => { showStatus("雲端已備份"); hideStatus(); });
+    }
+
+    function updateUserTargets() {
+        userTargets = {
+            cal: parseInt(document.getElementById('setCal').value) || 0,
+            pro: parseInt(document.getElementById('setPro').value) || 0,
+            carb: parseInt(document.getElementById('setCarb').value) || 0
+        };
+        applyDataToUI();
+        sync('saveTargets', userTargets);
     }
 
     function toggleLibrary() { document.getElementById('librarySection').classList.toggle('hidden'); }
@@ -165,20 +204,15 @@
         const list = document.getElementById('libraryList');
         const selects = document.querySelectorAll('select');
         list.innerHTML = foodLibrary.map((f, i) => `
-            <div class="flex justify-between items-center text-sm py-2 border-b border-gray-50 hover:bg-gray-50 px-2 rounded group">
-                <span class="font-medium text-gray-700">${f.name} <span class="text-[10px] text-gray-400 font-normal">(${f.cal}k / P:${f.pro} / C:${f.carb})</span></span>
-                <button onclick="deleteLibItem(${i})" class="text-red-300 hover:text-red-500 transition">✕</button>
-            </div>
-        `).join('');
+            <div class="flex justify-between items-center text-[11px] py-1 border-b">
+                <span>${f.name} <span class="text-gray-400">(${f.cal}k/P:${f.pro}/C:${f.carb})</span></span>
+                <button onclick="deleteLibItem(${i})" class="text-red-300">✕</button>
+            </div>`).join('');
         const opts = foodLibrary.map((f, i) => `<option value="${i}">${f.name}</option>`).join('');
         selects.forEach(s => s.innerHTML = '<option value="">+ 加入食物</option>' + opts);
     }
 
-    function deleteLibItem(i) { 
-        if(confirm('確定要從資料庫刪除嗎？')) {
-            foodLibrary.splice(i, 1); updateLibraryUI(); sync('saveLibrary', foodLibrary); 
-        }
-    }
+    function deleteLibItem(i) { foodLibrary.splice(i, 1); updateLibraryUI(); sync('saveLibrary', foodLibrary); }
 
     function addFromLibrary(meal, select) {
         const idx = select.value;
@@ -208,6 +242,9 @@
         document.getElementById('totalCal').innerText = Math.round(c);
         document.getElementById('totalPro').innerText = Math.round(p);
         document.getElementById('totalCarb').innerText = Math.round(b);
+        
+        // 視覺回饋：達成目標變色
+        document.getElementById('totalPro').className = (p >= userTargets.pro) ? "text-xl font-bold text-green-400" : "text-xl font-bold text-blue-400";
     }
 
     function clearDailyLog() { if(confirm('重置紀錄？')) { dailyLog = { '早餐': [], '午餐': [], '下午茶': [], '晚餐': [] }; renderDailyLog(); updateTotals(); sync('saveLog', dailyLog); } }
